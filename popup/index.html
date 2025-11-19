@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CastToTV Media Hub</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="app__header">
+        <div>
+          <h1>媒体控制中心</h1>
+          <p>最近播放的音频与视频</p>
+        </div>
+      </header>
+      <section id="empty-state" class="empty-state" hidden>
+        <p>没有检测到正在播放的媒体。</p>
+        <p class="empty-state__hint">在打开的视频或音频页面点击播放后再尝试。</p>
+      </section>
+      <section id="media-list" class="media-list" aria-live="polite"></section>
+    </main>
+
+    <template id="media-card-template">
+      <article class="media-card">
+        <div class="media-card__artwork">
+          <img class="media-card__artwork-img" alt="媒体封面" />
+        </div>
+        <div class="media-card__body">
+          <div class="media-card__meta">
+            <div class="media-card__origin" title="来源站点">
+              <img class="media-card__favicon" alt="站点图标" />
+              <span class="media-card__origin-text"></span>
+            </div>
+            <button class="media-card__open" data-action="open-tab" title="切换到来源标签页">↗</button>
+          </div>
+          <div class="media-card__title" title="标题"></div>
+          <div class="media-card__artist" title="作者"></div>
+          <div class="media-card__status"></div>
+          <div class="media-card__controls" role="group" aria-label="播放控制">
+            <button class="media-card__icon-button" data-command="seek-relative" data-delta="-10" title="后退 10 秒">⏪ 10s</button>
+            <button class="media-card__play" data-command="toggle-play" title="播放 / 暂停">
+              <span class="media-card__play-icon" aria-hidden="true">▶</span>
+            </button>
+            <button class="media-card__icon-button" data-command="seek-relative" data-delta="10" title="快进 10 秒">10s ⏩</button>
+          </div>
+          <div class="media-card__progress">
+            <span class="media-card__time media-card__time--elapsed">0:00</span>
+            <input class="media-card__slider" type="range" min="0" max="0" value="0" step="0.1" aria-label="播放进度" />
+            <span class="media-card__time media-card__time--total">0:00</span>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <script src="../utils/messageTypes.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
