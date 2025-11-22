@@ -103,12 +103,6 @@
   const pendingUpdates = new Map(); // elementId -> rafId
 
   /**
-   * 页面图标（favicon）
-   * 在脚本初始化时获取一次，作为会话的站点标识
-   */
-  const pageIcon = findPageIcon();
-
-  /**
    * 站点名称，按优先级尝试获取：
    * 1. Open Graph 元数据（社交媒体标准）
    * 2. 页面标题
@@ -300,6 +294,12 @@
     }
     return null;
   }
+
+  /**
+   * 页面图标（favicon）
+   * 在脚本初始化时获取一次，作为会话的站点标识
+   */
+  const pageIcon = findPageIcon();
 
   /**
    * 序列化媒体元素状态
@@ -592,7 +592,7 @@
     [MEDIA_COMMANDS.TOGGLE_PLAY]: async (element) => {
       if (element.paused || element.ended) {
         // 播放可能因自动播放策略失败，静默处理错误
-        await element.play().catch(() => {});
+        await element.play().catch(() => { });
       } else {
         element.pause();
       }
