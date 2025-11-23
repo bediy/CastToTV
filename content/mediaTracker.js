@@ -103,6 +103,16 @@
   const pendingUpdates = new Map(); // elementId -> rafId
 
   /**
+   * 当前激活的媒体元素 ID
+   * 
+   * 策略：每个页面只追踪一个"活跃"的媒体元素。
+   * - 这是一个互斥锁，确保 popup 只显示一个媒体控制卡片
+   * - 当用户播放新视频时，会自动切换到新视频
+   * - 页面滚动自动播放场景下，焦点会自动跟随
+   */
+  let activeMediaId = null;
+
+  /**
    * 站点名称，按优先级尝试获取：
    * 1. Open Graph 元数据（社交媒体标准）
    * 2. 页面标题
@@ -360,6 +370,13 @@
    * @param {HTMLMediaElement} element - 媒体元素
    */
   const flushUpdate = (element) => {
+    const elementId = ensureElementId(element);
+
+    // 只有当前激活的元素才允许发送更新
+    if (elementId !== activeMediaId) {
+      return;
+    }
+
     const payload = serializeElement(element);
     safeSendMessage({ type: MESSAGE_TYPES.MEDIA_UPDATE, payload });
   };
@@ -402,6 +419,43 @@
     });
 
     pendingUpdates.set(elementId, rafId);
+    pendingUpdates.set(elementId, rafId);
+  };
+
+  /**
+   * 设置当前激活的媒体元素
+   * 
+   * 切换焦点逻辑：
+   * 1. 如果有旧的激活元素，通知 background 移除它
+   * 2. 更新 activeMediaId
+   * 3. 立即发送新元素的状态
+   * 
+   * @param {HTMLMediaElement} element - 新的激活元素
+   */
+  const setActiveElement = (element) => {
+    const newId = ensureElementId(element);
+
+    // 如果已经是当前激活元素，不做任何操作
+    if (activeMediaId === newId) {
+      return;
+    }
+
+    // 1. 清理旧的激活元素
+    if (activeMediaId) {
+      // 取消旧元素的任何待处理更新
+      if (pendingUpdates.has(activeMediaId)) {
+        cancelAnimationFrame(pendingUpdates.get(activeMediaId));
+        pendingUpdates.delete(activeMediaId);
+      }
+      // 通知 background 移除旧元素
+      safeSendMessage({ type: MESSAGE_TYPES.MEDIA_REMOVED, payload: { elementId: activeMediaId } });
+    }
+
+    // 2. 设置新元素为激活状态
+    activeMediaId = newId;
+
+    // 3. 立即发送新元素状态
+    scheduleUpdate(element, true);
   };
 
   /**
@@ -436,6 +490,12 @@
      * 其他事件（如 play/pause）使用立即模式确保及时响应
      */
     const listener = (event) => {
+      // 核心策略：播放事件触发焦点切换
+      // 当用户点击播放，或页面自动播放新视频时，该视频成为新的激活元素
+      if (event.type === 'play') {
+        setActiveElement(element);
+      }
+
       const isImmediate = event.type !== 'timeupdate';
       scheduleUpdate(element, isImmediate);
     };
@@ -447,8 +507,12 @@
     // 保存追踪信息
     trackedElements.set(elementId, { element, listener });
 
-    // 立即发送初始状态，让 popup 能看到这个媒体
-    scheduleUpdate(element, true);
+    // 初始激活策略：
+    // 1. 如果当前没有激活元素，直接激活这个新元素
+    // 2. 如果新元素正在播放，强制抢占激活权（处理自动播放场景）
+    if (!activeMediaId || (!element.paused && !element.ended)) {
+      setActiveElement(element);
+    }
   };
 
   /**
@@ -487,8 +551,11 @@
     // 清理元素上的自定义属性
     element.removeAttribute('data-cast-to-tv-media-id');
 
-    // 通知 background 该媒体已不存在
-    safeSendMessage({ type: MESSAGE_TYPES.MEDIA_REMOVED, payload: { elementId } });
+    // 如果移除的是当前激活元素，清理 activeMediaId
+    if (activeMediaId === elementId) {
+      activeMediaId = null;
+      safeSendMessage({ type: MESSAGE_TYPES.MEDIA_REMOVED, payload: { elementId } });
+    }
   };
 
   /**
